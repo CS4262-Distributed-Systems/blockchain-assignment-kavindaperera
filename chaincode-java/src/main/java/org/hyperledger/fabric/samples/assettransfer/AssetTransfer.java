@@ -236,4 +236,41 @@ public final class AssetTransfer implements ContractInterface {
 
         return response;
     }
+
+    /**
+     * Duplicates an asset on the ledger.
+     *
+     * @param ctx the transaction context
+     * @param assetID the ID of the asset being duplicated
+     * @param owner the owner of the duplicate asset
+     * @return the duplicated asset
+     */
+    @Transaction(intent = Transaction.TYPE.SUBMIT)
+    public Asset DuplicateAsset(final Context ctx, final String assetID, final String owner) {
+        ChaincodeStub stub = ctx.getStub();
+        String assetJSON = stub.getStringState(assetID);
+
+        if (assetJSON == null || assetJSON.isEmpty()) {
+            String errorMessage = String.format("Asset %s does not exist", assetID);
+            System.out.println(errorMessage);
+            throw new ChaincodeException(errorMessage, AssetTransferErrors.ASSET_NOT_FOUND.toString());
+        }
+
+        String newAssetID = assetID + "_duplicate";
+
+        if (AssetExists(ctx, newAssetID)) {
+            String errorMessage = String.format("Duplicate of asset %s already exists", assetID);
+            System.out.println(errorMessage);
+            throw new ChaincodeException(errorMessage, AssetTransferErrors.ASSET_ALREADY_EXISTS.toString());
+        }
+
+        Asset asset = genson.deserialize(assetJSON, Asset.class);
+
+        Asset newAsset = new Asset(newAssetID, asset.getColor(), asset.getSize(), owner, asset.getAppraisedValue());
+        //Use Genson to convert the Asset into string, sort it alphabetically and serialize it into a json string
+        String sortedJson = genson.serialize(newAsset);
+        stub.putStringState(newAssetID, sortedJson);
+
+        return newAsset;
+    }
 }
